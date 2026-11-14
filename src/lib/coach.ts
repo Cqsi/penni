@@ -48,7 +48,7 @@ function context() {
 }
 
 /** Ask the AI coach. Falls back to the scripted answer if the server can't be reached. */
-export async function askCoach(bot: Bot, history: ChatMsg[]): Promise<{ text: string; live: boolean; error?: string }> {
+export async function askCoach(bot: Bot, history: ChatMsg[], voice = false): Promise<{ text: string; live: boolean; error?: string }> {
   const question = history.filter((m) => m.from === 'me').at(-1)?.text ?? '';
   const url = serverUrl();
   const controller = new AbortController();
@@ -57,7 +57,7 @@ export async function askCoach(bot: Bot, history: ChatMsg[]): Promise<{ text: st
     const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ botName: bot.name, botRole: bot.role, context: context(), messages: history }),
+      body: JSON.stringify({ botName: bot.name, botRole: bot.role, context: context(), messages: history, voice }),
       signal: controller.signal,
     });
     const json = await res.json();
@@ -84,3 +84,7 @@ export async function transcribe(uri: string): Promise<string> {
   if (!res.ok) throw new Error(json.error ?? 'Transcription failed');
   return json.text as string;
 }
+
+/** URL of the bot speaking `text` (an mp3 streamed from the server, voice by ElevenLabs). */
+export const speechUrl = (botId: string, text: string) =>
+  `${serverUrl().replace(/\/chat$/, '/speak')}?bot=${encodeURIComponent(botId)}&text=${encodeURIComponent(text)}`;

@@ -11,8 +11,14 @@ if (!KEY) {
   process.exit(1);
 }
 
-function systemPrompt({ botName, botRole, context }) {
+const VOICE_RULES = [
+  'You are on a live voice call. Talk like a friend on the phone: 1–2 short sentences, under 35 words.',
+  'No lists, symbols, emojis or markdown. Say amounts naturally, like "about 140 euros". End with a short question now and then to keep the chat going.',
+].join('\n');
+
+function systemPrompt({ botName, botRole, context, voice }) {
   return [
+    ...(voice ? [VOICE_RULES] : []),
     `You are ${botName}, a friendly money coach inside S-Bank's mobile app. Your style: ${botRole}`,
     'You help young adults understand their own spending. Explain things in plain, warm language, no jargon.',
     'Use the "three baskets": Must-haves (regular bills: rent, utilities, groceries), Surprises (needed but unplanned: dentist, broken phone), Little leaks (small optional buys that add up: coffee, takeaway, fun).',
@@ -33,7 +39,7 @@ async function askOpenAI(body) {
   const res = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${KEY}` },
-    body: JSON.stringify({ model: MODEL, messages, max_tokens: 220, temperature: 0.6 }),
+    body: JSON.stringify({ model: MODEL, messages, max_tokens: body.voice ? 120 : 220, temperature: 0.6 }),
   });
   const json = await res.json();
   if (!res.ok) throw new Error(json?.error?.message ?? `OpenAI error ${res.status}`);
@@ -139,14 +145,53 @@ async function readReceipt({ image, mime = 'image/jpeg' }) {
   return best;
 }
 
+// Voice replies: each bot speaks with its own ElevenLabs voice.
+const ELEVEN_KEY = process.env.ELEVENLABS_API_KEY;
+const VOICES = {
+  pyra: 'FGY2WhTYpPnrIDTdsKH5', // Laura: quick, quirky
+  cubo: 'bIHbv24MWmeRgasZH58o', // Will: relaxed, steady
+  pera: 'cgSgspJ2msm6clMCkdW9', // Jessica: playful, warm
+};
+const DEFAULT_VOICE = VOICES.pera;
+
+/** Text → speech, streamed straight through to the phone so playback starts right away. */
+async function speak(res, { text, bot }) {
+  const voice = VOICES[bot] ?? DEFAULT_VOICE;
+  const r = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voice}/stream?output_format=mp3_44100_64`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'xi-api-key': ELEVEN_KEY },
+    body: JSON.stringify({ text: text.slice(0, 600), model_id: 'eleven_flash_v2_5' }),
+  });
+  if (!r.ok) throw new Error(`ElevenLabs ${r.status}: ${(await r.text()).slice(0, 200)}`);
+  res.writeHead(200, { ...cors, 'Content-Type': 'audio/mpeg', 'Cache-Control': 'no-store' });
+  for await (const chunk of r.body) res.write(chunk);
+  res.end();
+}
+
 const cors = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type',
 };
 
 createServer(async (req, res) => {
   if (req.method === 'OPTIONS') return res.writeHead(204, cors).end();
+
+  // GET /speak?bot=pyra&text=... returns an mp3 the app can play directly from the URL.
+  if (req.method === 'GET' && req.url.startsWith('/speak')) {
+    const q = new URL(req.url, 'http://x').searchParams;
+    if (!ELEVEN_KEY) return res.writeHead(503, cors).end('No ELEVENLABS_API_KEY');
+    try {
+      const started = Date.now();
+      await speak(res, { text: q.get('text') ?? '', bot: q.get('bot') });
+      console.log(`[elevenlabs] ${Date.now() - started}ms  ${q.get('bot')}: "${(q.get('text') ?? '').slice(0, 60)}"`);
+    } catch (err) {
+      console.error('Speak failed:', err.message);
+      if (!res.headersSent) res.writeHead(502, cors);
+      res.end();
+    }
+    return;
+  }
   if (req.method !== 'POST' || !['/chat', '/transcribe', '/receipt'].includes(req.url)) return res.writeHead(404, cors).end();
 
   let raw = '';
