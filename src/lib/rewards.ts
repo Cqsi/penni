@@ -15,10 +15,11 @@ export const XP = { lesson: 50, task: 30 };
 
 const TITLES = ['Money Rookie', 'Budget Builder', 'Savings Star', 'Money Master'];
 
-export const REWARDS: { id: string; title: string; where: string; cost: number; icon: Icon }[] = [
-  { id: 'chicken', title: '-22% off chicken breast', where: 'S-market', cost: 150, icon: 'restaurant-outline' },
-  { id: 'coffee', title: 'Free coffee', where: 'ABC', cost: 200, icon: 'cafe-outline' },
-  { id: 'coffee-3for2', title: '3 coffee packages for 2', where: 'Prisma', cost: 600, icon: 'pricetags-outline' },
+export const REWARDS: { id: string; title: string; cost: number; icon: Icon }[] = [
+  { id: 'cheese', title: '-20% off Valio cheese slices', cost: 100, icon: 'pricetag-outline' },
+  { id: 'chicken', title: '-22% off chicken breast', cost: 150, icon: 'restaurant-outline' },
+  { id: 'coffee', title: 'Free coffee', cost: 200, icon: 'cafe-outline' },
+  { id: 'coffee-3for2', title: '3 coffee packages for 2', cost: 600, icon: 'pricetags-outline' },
 ];
 
 /** Level, XP and S-Bonus points, worked out from what the user has done in the app. */

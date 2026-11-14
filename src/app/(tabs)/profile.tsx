@@ -75,9 +75,7 @@ export default function Profile() {
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.rowTitle}>{r.title}</Text>
-                  <Text style={styles.muted}>
-                    {r.where} · {r.cost.toLocaleString('en-US')} pts
-                  </Text>
+                  <Text style={styles.muted}>{r.cost.toLocaleString('en-US')} pts</Text>
                 </View>
                 {got ? (
                   <Animated.View entering={ZoomIn.duration(250)} style={styles.redeemed}>
