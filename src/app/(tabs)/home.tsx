@@ -30,9 +30,9 @@ export default function Home() {
       <View style={{ paddingHorizontal: 20 }}>
         <AppBar
           left={
-            <View style={styles.profile}>
+            <Pressable style={styles.profile} onPress={() => router.navigate('/profile')} hitSlop={8}>
               <Text style={styles.profileText}>{user.firstName[0]}</Text>
-            </View>
+            </Pressable>
           }
           right={
             <Pressable onPress={() => router.push({ pathname: '/scan', params: { bot: botId } })} hitSlop={10}>

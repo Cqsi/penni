@@ -6,7 +6,7 @@ import { BotAvatar } from '../../bots/BotAvatar';
 import { useBotId } from '../../lib/setup';
 import { colors, fonts } from '../../theme';
 
-/** Bottom nav: Home and Chat. The chat tab's icon is the user's own bot. */
+/** Bottom nav: Home, Chat and Profile. The chat tab's icon is the user's own bot. */
 export default function TabsLayout() {
   const botId = useBotId();
   const { bottom } = useSafeAreaInsets();
@@ -37,6 +37,13 @@ export default function TabsLayout() {
               <BotAvatar id={botId} size={30} />
             </View>
           ),
+        }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: 'Profile',
+          tabBarIcon: ({ focused, color }) => <Ionicons name={focused ? 'person-circle' : 'person-circle-outline'} size={26} color={color as string} />,
         }}
       />
     </Tabs>
