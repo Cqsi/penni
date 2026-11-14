@@ -2,7 +2,8 @@ import Constants from 'expo-constants';
 import { File } from 'expo-file-system';
 import { NativeModules, Platform } from 'react-native';
 import type { Bot } from '../bots/bots';
-import { baskets, cannedReply, income, lastWeek, month, user, week } from '../data/mock';
+import { baskets, cannedReply, income, lastWeek, month, user } from '../data/mock';
+import { getSetup, setupContext, weekFor } from './setup';
 
 export type ChatMsg = { from: 'bot' | 'me'; text: string };
 
@@ -28,6 +29,7 @@ export function serverUrl() {
 
 /** The user's money facts, summarised for the AI. Same numbers the app shows. */
 function context() {
+  const wk = weekFor(getSetup());
   const b = baskets
     .map((x) => `- ${x.name} (${x.hint.toLowerCase()}): €${x.amount} — ${x.categories.map((c) => `${c.name} €${c.amount}`).join(', ')}`)
     .join('\n');
@@ -37,10 +39,11 @@ function context() {
     `Monthly net income: €${income}.`,
     `${month} spending by basket:`,
     b,
-    `Safe to spend this week: €${week.safeToSpend} of a €${week.budget} weekly budget, ${week.daysLeft} days left.`,
+    `Safe to spend this week: €${wk.safeToSpend} of a €${wk.budget} weekly budget, ${wk.daysLeft} days left (€${wk.spent} spent so far).`,
     `Last week per day (Mon–Sun): ${days}. Biggest day Friday.`,
     'Other facts: coffee €46 in October (about 11 cups, mostly weekday mornings). Taxis €38 over 3 rides.',
-    '61% of little leaks happen Friday–Sunday. Saving goal: €200/month. Surprise reserve: €100/month.',
+    '61% of little leaks happen Friday–Sunday.',
+    setupContext(),
   ].join('\n');
 }
 

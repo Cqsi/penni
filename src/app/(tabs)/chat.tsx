@@ -12,18 +12,18 @@ import { useEffect, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, type ScrollViewInstance, StyleSheet, Text, TextInput, View } from 'react-native';
 import Animated, { FadeIn, FadeInDown, useAnimatedStyle, useSharedValue, withDelay, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { BotAvatar } from '../bots/BotAvatar';
-import { ALL_BOTS, PICKABLE, type BotId } from '../bots/bots';
-import { ScreenHeader } from '../components/ScreenHeader';
-import { suggestions, user } from '../data/mock';
-import { askCoach, transcribe } from '../lib/coach';
-import { colors, fonts, radius } from '../theme';
+import { BotAvatar } from '../../bots/BotAvatar';
+import { ALL_BOTS } from '../../bots/bots';
+import { suggestions, user } from '../../data/mock';
+import { askCoach, transcribe } from '../../lib/coach';
+import { useBotId } from '../../lib/setup';
+import { colors, fonts, radius } from '../../theme';
 
 type Msg = { id: number; from: 'bot' | 'me'; text: string; note?: string };
 
 export default function Chat() {
-  const params = useLocalSearchParams<{ bot?: string; q?: string }>();
-  const botId: BotId = params.bot && params.bot in ALL_BOTS ? (params.bot as BotId) : PICKABLE[0];
+  const params = useLocalSearchParams<{ q?: string; t?: string }>();
+  const botId = useBotId();
   const bot = ALL_BOTS[botId];
 
   const [messages, setMessagesState] = useState<Msg[]>([
@@ -115,16 +115,14 @@ export default function Chat() {
   useEffect(() => {
     if (params.q) send(params.q);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [params.q, params.t]);
 
   const asked = messages.some((m) => m.from === 'me');
   const lastBot = [...messages].reverse().find((m) => m.from === 'bot')?.id;
 
   return (
-    <SafeAreaView style={styles.screen} edges={['top', 'bottom']}>
-      <View style={{ paddingHorizontal: 20 }}>
-        <ScreenHeader title={bot.name} />
-      </View>
+    <SafeAreaView style={styles.screen} edges={['top']}>
+      <Text style={styles.header}>{bot.name}</Text>
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={8}>
         <ScrollView
@@ -191,7 +189,6 @@ export default function Chat() {
                 placeholderTextColor={colors.muted}
                 style={styles.input}
                 returnKeyType="send"
-                autoFocus={!params.q}
               />
             ) : voice === 'recording' ? (
               <Animated.View entering={FadeIn.duration(200)} style={styles.listening}>
@@ -267,6 +264,7 @@ function Dot({ delay }: { delay: number }) {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
+  header: { height: 48, lineHeight: 48, textAlign: 'center', fontSize: 17, fontFamily: fonts.medium, color: colors.text },
   list: { paddingHorizontal: 16, paddingBottom: 16, gap: 10 },
   intro: { alignItems: 'center', paddingTop: 8, paddingBottom: 14 },
   introRole: { fontSize: 14, color: colors.muted, fontFamily: fonts.regular, textAlign: 'center', marginTop: 8, maxWidth: 260, lineHeight: 20 },

@@ -1,39 +1,29 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect } from 'react';
+import { router } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import Animated, { Easing, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
+import Animated, { ZoomIn } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
-import { BotAvatar } from '../bots/BotAvatar';
-import { ALL_BOTS, PICKABLE, type BotId } from '../bots/bots';
-import { AppBar } from '../components/AppBar';
-import { SpendCarousel } from '../components/SpendCarousel';
-import { baskets, month, user } from '../data/mock';
-import { colors, fonts, radius } from '../theme';
+import { AppBar } from '../../components/AppBar';
+import { SpendCarousel } from '../../components/SpendCarousel';
+import { baskets, month, user } from '../../data/mock';
+import { todayLesson } from '../../data/lessons';
+import { resetSetup, todayKey, useBotId, useSetup } from '../../lib/setup';
+import { TASKS } from '../../lib/tasks';
+import { colors, fonts, radius } from '../../theme';
 
 const BASKET_COLORS = [colors.basket1, colors.basket2, colors.basket3];
-const BOT_SIZE = 58;
 
 export default function Home() {
-  const params = useLocalSearchParams<{ bot?: string }>();
-  const botId: BotId = params.bot && params.bot in ALL_BOTS ? (params.bot as BotId) : PICKABLE[0];
-  const bot = ALL_BOTS[botId];
+  const botId = useBotId();
 
-  const openChat = (q?: string) => router.push({ pathname: '/chat', params: q ? { bot: botId, q } : { bot: botId } });
-
-  // The bot sits next to the ask bar: a gentle hover and a slow turn from side to side.
-  const hover = useSharedValue(0);
-  const turn = useSharedValue(-1);
-  useEffect(() => {
-    hover.value = withRepeat(withTiming(1, { duration: 2200, easing: Easing.inOut(Easing.sin) }), -1, true);
-    turn.value = withRepeat(withTiming(1, { duration: 3600, easing: Easing.inOut(Easing.sin) }), -1, true);
-  }, [hover, turn]);
-  const hoverStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: -hover.value * 4 }, { rotate: `${turn.value * 5}deg` }, { scaleX: 1 - Math.abs(turn.value) * 0.04 }],
-  }));
+  // Ask the coach from Home: switch to the Chat tab with the question (t makes repeats count).
+  const openChat = (q: string) => router.navigate({ pathname: '/chat', params: { q, t: String(Date.now()) } });
 
   const total = baskets.reduce((s, b) => s + b.amount, 0);
+  const setup = useSetup();
+  const doneCount = TASKS.filter((t) => t.done(setup)).length;
+  const lesson = todayLesson();
+  const lessonDone = setup.lessonDoneOn === todayKey();
 
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
@@ -54,6 +44,56 @@ export default function Home() {
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <SpendCarousel />
+
+        {/* Long-press the heading to undo the tasks (handy for demos). */}
+        <Pressable style={styles.sectionRow} onLongPress={resetSetup} delayLongPress={600}>
+          <Text style={styles.section}>{doneCount === TASKS.length ? 'Your plan' : 'Start here'}</Text>
+          <Text style={styles.sectionHint}>{doneCount === TASKS.length ? 'All set' : `${doneCount} of ${TASKS.length} done`}</Text>
+        </Pressable>
+        <View style={[styles.card, { paddingVertical: 8 }]}>
+          {TASKS.map((t, i) => {
+            const done = t.done(setup);
+            return (
+              <Pressable
+                key={t.id}
+                style={({ pressed }) => [styles.task, i > 0 && styles.basketDivider, pressed && { opacity: 0.6 }]}
+                onPress={() => router.push({ pathname: '/task', params: { id: t.id, bot: botId } })}
+              >
+                {done ? (
+                  <Animated.View entering={ZoomIn.duration(300)} style={[styles.check, styles.checkDone]}>
+                    <Ionicons name="checkmark" size={15} color="#fff" />
+                  </Animated.View>
+                ) : (
+                  <View style={styles.check}>
+                    <Text style={styles.checkNum}>{i + 1}</Text>
+                  </View>
+                )}
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.taskTitle}>{t.title}</Text>
+                  <Text style={[styles.taskHint, done && { color: colors.brand }]}>{done ?? t.hint}</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={colors.muted} />
+              </Pressable>
+            );
+          })}
+        </View>
+
+        <Pressable style={({ pressed }) => [styles.lesson, pressed && { transform: [{ scale: 0.98 }] }]} onPress={() => router.push('/lesson')}>
+          <View style={styles.lessonIcon}>
+            <Ionicons name={lesson.icon} size={22} color={colors.brand} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.lessonEyebrow}>Daily lesson · {lesson.minutes} min</Text>
+            <Text style={styles.gameTitle}>{lesson.title}</Text>
+          </View>
+          {lessonDone ? (
+            <View style={[styles.check, styles.checkDone]}>
+              <Ionicons name="checkmark" size={15} color="#fff" />
+            </View>
+          ) : (
+            <Ionicons name="chevron-forward" size={20} color={colors.muted} />
+          )}
+        </Pressable>
 
         <View style={styles.sectionRow}>
           <Text style={styles.section}>Baskets</Text>
@@ -94,31 +134,6 @@ export default function Home() {
         </Pressable>
       </ScrollView>
 
-      {/* Bottom row: the bot on the left, the ask bar next to it. Tapping either opens the chat. */}
-      <SafeAreaView edges={['bottom']} style={styles.askWrap}>
-        <Svg pointerEvents="none" style={styles.fade} width="100%" height={24}>
-          <Defs>
-            <LinearGradient id="askFade" x1="0" y1="0" x2="0" y2="1">
-              <Stop offset="0" stopColor={colors.bg} stopOpacity={0} />
-              <Stop offset="1" stopColor={colors.bg} stopOpacity={1} />
-            </LinearGradient>
-          </Defs>
-          <Rect width="100%" height={24} fill="url(#askFade)" />
-        </Svg>
-        <View style={styles.askRow}>
-          <Pressable onPress={() => openChat()}>
-            <Animated.View style={hoverStyle}>
-              <BotAvatar id={botId} size={BOT_SIZE} />
-            </Animated.View>
-          </Pressable>
-          <Pressable style={({ pressed }) => [styles.ask, pressed && { opacity: 0.85 }]} onPress={() => openChat()}>
-            <Text style={styles.askText}>Ask {bot.name}</Text>
-            <View style={styles.send}>
-              <Ionicons name="arrow-up" size={20} color="#fff" />
-            </View>
-          </Pressable>
-        </View>
-      </SafeAreaView>
     </SafeAreaView>
   );
 }
@@ -135,6 +150,15 @@ const styles = StyleSheet.create({
   section: { fontSize: 20, fontFamily: fonts.medium, color: colors.text, letterSpacing: -0.4 },
   sectionHint: { fontSize: 13, color: colors.muted, fontFamily: fonts.regular },
   basket: { paddingVertical: 14 },
+  lesson: { flexDirection: 'row', alignItems: 'center', gap: 14, borderRadius: radius.row, paddingVertical: 16, paddingHorizontal: 16, backgroundColor: colors.card, marginTop: 12 },
+  lessonIcon: { width: 44, height: 44, borderRadius: 14, backgroundColor: colors.brandSoft, alignItems: 'center', justifyContent: 'center' },
+  lessonEyebrow: { fontSize: 13, fontFamily: fonts.medium, color: colors.brand, marginBottom: 2 },
+  task: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 14 },
+  check: { width: 28, height: 28, borderRadius: 14, borderWidth: 1.5, borderColor: colors.hairline, alignItems: 'center', justifyContent: 'center' },
+  checkDone: { backgroundColor: colors.brand, borderColor: colors.brand },
+  checkNum: { fontSize: 13, fontFamily: fonts.medium, color: colors.muted },
+  taskTitle: { fontSize: 16, fontFamily: fonts.medium, color: colors.text },
+  taskHint: { fontSize: 13, fontFamily: fonts.regular, color: colors.muted, marginTop: 2 },
   basketDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.hairline },
   basketTop: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   dot: { width: 8, height: 8, borderRadius: 4 },
@@ -145,10 +169,4 @@ const styles = StyleSheet.create({
   whatIfArrow: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.brand, alignItems: 'center', justifyContent: 'center' },
   game: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: radius.row, paddingVertical: 18, paddingHorizontal: 20, backgroundColor: colors.card, marginTop: 12 },
   gameTitle: { flex: 1, fontSize: 17, fontFamily: fonts.medium, color: colors.text },
-  askWrap: { backgroundColor: colors.bg, paddingHorizontal: 16, paddingTop: 4 },
-  fade: { position: 'absolute', top: -24, left: 0, right: 0 },
-  askRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 8 },
-  ask: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card, borderRadius: radius.pill, paddingLeft: 20, paddingRight: 6, height: 54 },
-  askText: { flex: 1, fontSize: 16, color: colors.muted, fontFamily: fonts.regular },
-  send: { width: 42, height: 42, borderRadius: 21, backgroundColor: colors.brand, alignItems: 'center', justifyContent: 'center' },
 });

@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import Animated, { Easing, type SharedValue, useAnimatedStyle, useSharedValue, withDelay, withTiming } from 'react-native-reanimated';
-import { lastWeek, week } from '../data/mock';
+import { lastWeek } from '../data/mock';
+import { useWeek } from '../lib/setup';
 import { colors, fonts, radius } from '../theme';
 
 const GAP = 12;
@@ -13,6 +14,7 @@ export function SpendCarousel({ onPage }: { onPage?: (page: number) => void }) {
   const cardW = Math.min(width, 520) - 40;
   const [page, setPage] = useState(0);
   const grow = useSharedValue(0);
+  const wk = useWeek();
 
   useEffect(() => {
     if (page === 1) grow.value = withTiming(1, { duration: 700, easing: Easing.out(Easing.cubic) });
@@ -21,10 +23,10 @@ export function SpendCarousel({ onPage }: { onPage?: (page: number) => void }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page]);
 
-  const spentShare = (week.budget - week.safeToSpend) / week.budget;
+  const spentShare = (wk.budget - wk.safeToSpend) / wk.budget;
   const total = lastWeek.amounts.reduce((a, b) => a + b, 0);
   const max = Math.max(...lastWeek.amounts);
-  const dailyBudget = week.budget / 7;
+  const dailyBudget = wk.budget / 7;
 
   return (
     <View>
@@ -45,14 +47,14 @@ export function SpendCarousel({ onPage }: { onPage?: (page: number) => void }) {
         <View style={[styles.card, { width: cardW }]}>
           <Text style={styles.label}>Safe to spend this week</Text>
           <View style={styles.amountRow}>
-            <Text style={styles.amount}>€{week.safeToSpend}</Text>
-            <Text style={styles.amountSub}>/ €{week.budget}</Text>
+            <Text style={styles.amount}>€{wk.safeToSpend}</Text>
+            <Text style={styles.amountSub}>/ €{wk.budget}</Text>
           </View>
           <View style={{ flex: 1 }} />
           <View style={styles.track}>
             <View style={[styles.fill, { width: `${spentShare * 100}%` }]} />
           </View>
-          <Text style={styles.caption}>{week.daysLeft} days left</Text>
+          <Text style={styles.caption}>{wk.daysLeft} days left</Text>
         </View>
 
         <View style={[styles.card, { width: cardW }]}>

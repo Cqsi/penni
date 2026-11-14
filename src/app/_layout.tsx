@@ -14,7 +14,9 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <StatusBar style="dark" />
-        <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }} />
+        <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
+          <Stack.Screen name="lesson" options={{ presentation: 'fullScreenModal', animation: 'slide_from_bottom' }} />
+        </Stack>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

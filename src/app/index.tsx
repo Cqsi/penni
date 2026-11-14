@@ -1,78 +1,85 @@
+import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
-import { useState } from 'react';
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import Animated, { FadeIn, FadeInDown, ZoomIn } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { BotAvatar, botHeadroom } from '../bots/BotAvatar';
-import { ALL_BOTS, PICKABLE, type BotId } from '../bots/bots';
-import { AppBar } from '../components/AppBar';
-import { SpeechBubble } from '../components/SpeechBubble';
+import { OnboardingProgress } from '../components/OnboardingProgress';
+import { SLogo } from '../components/SLogo';
 import { colors, fonts, radius } from '../theme';
 
-const tap = () => {
-  if (Platform.OS !== 'web') Haptics.selectionAsync();
-};
+type State = 'idle' | 'connecting' | 'connected';
 
-export default function PickBot() {
-  const [selected, setSelected] = useState<BotId>(PICKABLE[0]);
-  const [hop, setHop] = useState(0);
-  const bot = ALL_BOTS[selected];
+/** Onboarding 1/3: connect the S-Bank account. */
+export default function ConnectSBank() {
+  const [state, setState] = useState<State>('idle');
+  const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  useEffect(() => () => timers.current.forEach(clearTimeout), []);
 
-  const choose = (id: BotId) => {
-    tap();
-    setSelected(id);
-    setHop((h) => h + 1);
+  const next = () => router.push('/banks');
+
+  const connect = () => {
+    if (state === 'connected') return next();
+    if (state === 'connecting') return;
+    if (Platform.OS !== 'web') Haptics.selectionAsync();
+    setState('connecting');
+    timers.current.push(
+      setTimeout(() => {
+        if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        setState('connected');
+        timers.current.push(setTimeout(next, 700));
+      }, 1400),
+    );
   };
 
   return (
     <SafeAreaView style={styles.screen}>
-      <AppBar right={<View />} />
-      <Text style={styles.title} numberOfLines={1} adjustsFontSizeToFit>
-        Pick your money buddy
-      </Text>
+      <OnboardingProgress step={1} />
 
       <View style={styles.stage}>
-        <SpeechBubble text={bot.greeting} />
-        <Pressable onPress={() => choose(selected)} style={{ marginTop: -botHeadroom(selected, 210) + 6 }}>
-          <BotAvatar id={selected} size={210} hopSignal={hop} />
-        </Pressable>
-        <Text style={styles.name}>{bot.name}</Text>
-        <Text style={styles.role}>{bot.role}</Text>
+        <Animated.View entering={ZoomIn.duration(500)}>
+          <SLogo size={136} />
+        </Animated.View>
+        <Animated.Text entering={FadeInDown.delay(150).duration(400)} style={styles.title}>
+          Welcome to Penni
+        </Animated.Text>
+        <Animated.Text entering={FadeInDown.delay(250).duration(400)} style={styles.sub}>
+          Your money coach in S-mobiili. Connect your S-Bank account and Penni shows you where your money goes.
+        </Animated.Text>
       </View>
 
-      <View style={styles.row}>
-        {PICKABLE.map((id, i) => {
-          const active = id === selected;
-          return (
-            <Pressable key={id} onPress={() => choose(id)} style={[styles.option, active && styles.optionActive]}>
-              <BotAvatar id={id} size={60} phase={i + 1} />
-            </Pressable>
-          );
-        })}
-      </View>
-
-      <Pressable
-        style={({ pressed }) => [styles.cta, pressed && { opacity: 0.85 }]}
-        onPress={() => {
-          tap();
-          router.push({ pathname: '/home', params: { bot: selected } });
-        }}
-      >
-        <Text style={styles.ctaText}>Continue</Text>
+      <Pressable style={({ pressed }) => [styles.cta, pressed && state === 'idle' && { opacity: 0.85 }]} onPress={connect}>
+        {state === 'idle' && <Text style={styles.ctaText}>Connect S-pankki bank</Text>}
+        {state === 'connecting' && (
+          <Animated.View entering={FadeIn} style={styles.ctaRow}>
+            <ActivityIndicator color="#fff" />
+            <Text style={styles.ctaText}>Connecting…</Text>
+          </Animated.View>
+        )}
+        {state === 'connected' && (
+          <Animated.View entering={ZoomIn.duration(250)} style={styles.ctaRow}>
+            <Ionicons name="checkmark-circle" size={22} color="#fff" />
+            <Text style={styles.ctaText}>Connected</Text>
+          </Animated.View>
+        )}
       </Pressable>
+      <View style={styles.secure}>
+        <Ionicons name="lock-closed" size={12} color={colors.muted} />
+        <Text style={styles.secureText}>Penni can never move your money.</Text>
+      </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg, paddingHorizontal: 24, paddingBottom: 12 },
-  title: { fontSize: 28, lineHeight: 34, fontFamily: fonts.medium, color: colors.text, marginTop: 20, letterSpacing: -0.8 },
   stage: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  role: { fontSize: 15, lineHeight: 21, color: colors.muted, fontFamily: fonts.regular, textAlign: 'center', marginTop: 4, maxWidth: 290 },
-  name: { fontSize: 20, fontFamily: fonts.medium, color: colors.text, marginTop: 10, letterSpacing: -0.3 },
-  row: { flexDirection: 'row', justifyContent: 'center', gap: 14, marginBottom: 24 },
-  option: { width: 86, height: 86, borderRadius: 28, backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: 'transparent' },
-  optionActive: { borderColor: colors.brand },
+  title: { fontSize: 34, lineHeight: 40, fontFamily: fonts.medium, color: colors.text, marginTop: 32, letterSpacing: -1 },
+  sub: { fontSize: 16, lineHeight: 23, color: colors.muted, fontFamily: fonts.regular, textAlign: 'center', marginTop: 10, maxWidth: 300 },
   cta: { height: 56, borderRadius: radius.pill, backgroundColor: colors.brand, alignItems: 'center', justifyContent: 'center' },
+  ctaRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   ctaText: { color: '#fff', fontSize: 17, fontFamily: fonts.medium },
+  secure: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 12 },
+  secureText: { fontSize: 13, color: colors.muted, fontFamily: fonts.regular },
 });
